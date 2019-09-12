@@ -52,6 +52,15 @@ def hu_distance(t1, t2):
 
 @numba.jit(nopython=True, fastmath=True)
 def hausdorff_distance(t1, t2):
+    # type: (np.ndarray, np.ndarray) -> float
+    """
+    Compute the Hausdorff distance between two trajectories `t1` and `t2`
+
+    :param t1: Trajectory a
+    :param t2: Trajectory b
+    :return: hausdorff distance
+    """
+
     nA = t1.shape[0]
     nB = t2.shape[0]
     cmax = 0.
@@ -76,6 +85,36 @@ def hausdorff_distance(t1, t2):
         if cmin>cmax and np.inf>cmin:
             cmax = cmin
     return cmax
+
+
+@numba.jit(nopython=True, fastmath=True)
+def lcss_distance(t1, t2, th=100, delta=10):
+    """
+    Compute LCSS distance between `t1` and `t2` trajectories
+
+    :param t1: Trajectory a
+    :param t2: Trajectory b
+    :param th: Threshold
+    :param delta: Delta
+    :return: LCSS distance
+    """
+
+
+    m = t1.shape[0]
+    n = t2.shape[0]
+
+    L = np.full((n+1, m+1), 0.)
+
+    for i in range(m+1):
+        for j in range(n+1):
+            if i == 0 or j == 0:
+                L[i, j] = 0
+            elif euclidean_distance(t1[i - 1], t2[j - 1]) < th and abs(i-j) < delta:
+                L[i, j] = L[i-1, j-1] + 1
+            else:
+                L[i, j] = max(L[i-1, j], L[i, j - 1])
+
+    return 1 - (L[-1, -1] / min(m, n))
 
 
 def filter_flow(flow, th=0.1):
@@ -119,7 +158,7 @@ def similarity_matrix(trajectories, distance='hausdorff'):
     """
 
     len_t = len(trajectories)
-    sim_matrix = np.full((len_t,len_t), 0)
+    sim_matrix = np.full((len_t,len_t), 0.)
 
     with tqdm(desc='Compute similarity matrix: ', unit='it', total=len_t) as pbar:
         for i in range(0, len_t):
@@ -131,6 +170,8 @@ def similarity_matrix(trajectories, distance='hausdorff'):
                     sim_matrix[i, j] = hu_distance(t1, t2)
                 elif distance == 'hausdorff':
                     sim_matrix[i, j] = hausdorff_distance(t1, t2)
+                elif distance == 'lcss':
+                    sim_matrix[i, j] = lcss_distance(t1, t2)
             pbar.update(1)
     return sim_matrix
 
@@ -158,7 +199,7 @@ def resample_traj(t, len_seq, kind='linear'):
 
 
 def mat_to_np(file_path):
-    # type: (str) -> (np.ndarray, np.ndarray)
+    # type: (str) -> (list, np.ndarray)
     """
     Load mat data in numpy
 
@@ -176,7 +217,7 @@ def mat_to_np(file_path):
 
 
 def track_to_flow(tracks, flow_th=1):
-    # type: (np.ndarray, float) -> np.ndarray
+    # type: (list, float) -> list
     """
     Convert input track to corresponding flow.
 
@@ -200,7 +241,8 @@ def track_to_flow(tracks, flow_th=1):
     return tracks
 
 
-def show_tracks(file_path, n=float('Inf')):
+def show_tracks(file_path, n=float('Inf'), save_pics=True):
+    # type: (str, float, bool) -> None
     """
     Read data from `file_path` and visualize data ( `n` samples)
 
@@ -219,11 +261,13 @@ def show_tracks(file_path, n=float('Inf')):
         if i > n:
             break
     fig.show()
-    fig.savefig("./pics/Figure_0.jpg")
+    if save_pics:
+        fig.savefig("./pics/Figure_0.jpg")
     plt.close()
 
 
-def show_tracks_labels(file_path, labels, n=17):
+def show_tracks_labels(file_path, labels, n=17, save_pics=True):
+    # type: (str, np.ndarray, int, bool) -> None
     """
     Visualize clusters from labelled data
 
@@ -250,13 +294,14 @@ def show_tracks_labels(file_path, labels, n=17):
         xs, ys = track[0], track[1]
         plt.plot(xs, ys, ',-', color=colors[str(label)], linewidth=1)
     fig.show()
-    fig.savefig("./pics/cluster_n%d.jpg" % n)
+    if save_pics:
+        fig.savefig("./pics/cluster_n%d.jpg" % n)
     plt.close()
 
 
 def clustering_traj(tracks, gt, method='kmeans', fixed_length=100, num_samples=0, distance="hu",
                     sigma=15, flow=True, flow_th=0., n_cluster=8):
-
+    # type: (list, np.ndarray, str, int, int, str, int, bool, float, int) -> (np.ndarray, np.ndarray)
     """
     High level function to cluster trajectories
 
@@ -301,7 +346,7 @@ def clustering_traj(tracks, gt, method='kmeans', fixed_length=100, num_samples=0
 
 def main(args):
 
-    show_tracks(file_path=args.data, n=args.num_samples)
+    show_tracks(file_path=args.data, n=args.num_samples, save_pics=args.save_pics)
 
     tracks, gt = mat_to_np(file_path=args.data)
 
@@ -315,7 +360,7 @@ def main(args):
     print("V-measure: %0.3f" % metrics.v_measure_score(np.squeeze(gt), labels))
 
     for i in range(0, labels.max() +1):
-        show_tracks_labels(args.data, labels, i)
+        show_tracks_labels(args.data, labels, i, save_pics=args.save_pics)
 
 
 if __name__ == '__main__':
@@ -336,9 +381,11 @@ if __name__ == '__main__':
     parser.add_argument('--flow_th', type=float,
                         help='Filter flow using a threeshold', default=0.)
     parser.add_argument('--distance_function', type=str,
-                        help='Distance function used to compute similarity (hu | hausdorff )', default='hu')
+                        help='Distance function used to compute similarity (hu | hausdorff | lcss )', default='hu')
     parser.add_argument('--sigma', type=int,
                         help='Sigma value in gaussian kernel', default=15)
+    parser.add_argument('--save_pics', type=bool,
+                        help='Save figures', default=False)
 
     args = parser.parse_args()
     main(args)
