@@ -89,6 +89,7 @@ def hausdorff_distance(t1, t2):
 
 @numba.jit(nopython=True, fastmath=True)
 def lcss_distance(t1, t2, th=100, delta=10):
+    # type: (np.ndarray, np.ndarray, int, int) -> float
     """
     Compute LCSS distance between `t1` and `t2` trajectories
 
@@ -126,8 +127,8 @@ def filter_flow(flow, th=0.1):
     :return: filtered flow; ; np.ndarray with shape (N_FILTERED_POINTS, 4)
     """
     cf = []
-    for i in range(len(flow)):
-        if i != len(flow) - 1:
+    for i in range(flow.shape[0]):
+        if i != flow.shape[0] - 1:
             d = np.linalg.norm(flow[i][2:] - flow[i + 1][2:])
             if d > th:
                 cf.append(flow[i])
@@ -216,7 +217,7 @@ def mat_to_np(file_path):
     return tracks, mat['truth']
 
 
-def track_to_flow(tracks, flow_th=1):
+def track_to_flow(tracks, flow_th=0.1):
     # type: (list, float) -> list
     """
     Convert input track to corresponding flow.
@@ -230,7 +231,7 @@ def track_to_flow(tracks, flow_th=1):
             x, y = tracks[i][0], tracks[i][1]
             d = tracks[i][:, 1:] - tracks[i][:, :-1]
             d = np.pad(d, ((0, 0), (1, 0)), 'constant', constant_values=0)
-            d = d / (numpy.linalg.norm(d + 0.0000001))
+            d = d / (numpy.linalg.norm(d + 0.0000001, axis=0))
             dx, dy = d[0], d[1]
             tracks[i] = np.array([x, y, dx, dy])
 
@@ -241,7 +242,7 @@ def track_to_flow(tracks, flow_th=1):
     return tracks
 
 
-def show_tracks(file_path, n=float('Inf'), save_pics=True):
+def show_tracks(file_path, n=0, save_pics=True):
     # type: (str, float, bool) -> None
     """
     Read data from `file_path` and visualize data ( `n` samples)
@@ -250,6 +251,9 @@ def show_tracks(file_path, n=float('Inf'), save_pics=True):
     :param n: Num of samples
     :return: None
     """
+
+    if n == 0:
+        n = float('Inf')
 
     mat = scipy.io.loadmat(file_path)
 
@@ -377,7 +381,7 @@ if __name__ == '__main__':
     parser.add_argument('--fixed_length', type=int,
                         help='Resample trajectories to fixed length', default=100)
     parser.add_argument('--flow', type=bool,
-                        help='Convert trajectories to flow before clustering', default=True)
+                        help='Convert trajectories to flow before clustering', default=False)
     parser.add_argument('--flow_th', type=float,
                         help='Filter flow using a threeshold', default=0.)
     parser.add_argument('--distance_function', type=str,
@@ -388,4 +392,5 @@ if __name__ == '__main__':
                         help='Save figures', default=False)
 
     args = parser.parse_args()
+    print(args)
     main(args)
