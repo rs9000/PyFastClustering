@@ -211,14 +211,15 @@ def show_tracks(file_path, n=float('Inf')):
 
     mat = scipy.io.loadmat(file_path)
 
-    plt.figure()
+    fig = plt.figure()
     for i, track in enumerate(mat['tracks']):
         track = track[0]
         xs, ys = track[0], track[1]
         plt.plot(xs, ys, ',-', linewidth=1)
         if i > n:
             break
-    plt.show()
+    fig.show()
+    fig.savefig("./pics/Figure_0.jpg")
     plt.close()
 
 
@@ -249,7 +250,7 @@ def show_tracks_labels(file_path, labels, n=17):
         xs, ys = track[0], track[1]
         plt.plot(xs, ys, ',-', color=colors[str(label)], linewidth=1)
     fig.show()
-    fig.savefig("./pics/cluster_n%02d.jpg" % n)
+    fig.savefig("./pics/cluster_n%d.jpg" % n)
     plt.close()
 
 
