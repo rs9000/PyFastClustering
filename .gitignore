@@ -1,0 +1,11 @@
+### Pycharm stuffs
+.idea/
+*__pycache__/
+
+### Video files
+*.mp4
+*.MP4
+*.avi
+
+### Script
+.sh
