@@ -3,6 +3,9 @@ Python Fast Trajectories Clustering
 
 <img src="pics/demo.gif" width=800>
 
+<img src="pics/demo2.gif" width=800>
+
+
 ## Set-up
 
 - Install the required packages
