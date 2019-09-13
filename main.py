@@ -9,6 +9,7 @@ from tqdm import tqdm
 import argparse
 import numba
 import numpy
+from math import sqrt
 
 
 @numba.jit(nopython=True, fastmath=True)
@@ -26,7 +27,7 @@ def euclidean_distance(a, b):
     val = 0.
     for i in range(a.shape[0]):
         val += (a[i] - b[i]) ** 2
-    return val ** (1 / 2)
+    return sqrt(val)
 
 
 @numba.jit(nopython=True, fastmath=True)
@@ -270,6 +271,40 @@ def show_tracks(file_path, n=0, save_pics=True):
     plt.close()
 
 
+def mean_trajectories(tracks, labels):
+    # type: (np.ndarray, np.ndarray) -> list
+    """
+    Compute mean path from trajectories of each cluster
+    >> NOTE: To compute mean trajectories must be of the same length
+
+    :param tracks:  Trajectories
+    :param labels:  Cluster-ids
+    :return:  Mean paths
+    """
+
+    tracks_mean = []
+
+    # Compute mean trajectories
+    for i in range(max(labels)):
+        idxs = [np.where(labels == i)]
+        traj = np.mean(np.array(tracks)[np.squeeze(idxs)], axis=0)
+        tracks_mean.append(traj)
+
+    # Plot
+    fig = plt.figure()
+    plt.title('Most frequent trajectories')
+    for t in tracks_mean:
+        xs, ys = t[0], t[1]
+        color = (randint(64, 255) / 255, randint(64, 255) / 255, randint(64, 255) / 255)
+        plt.plot(xs, ys, ',-', color=color, linewidth=2)
+
+    fig.show()
+    fig.savefig("./pics/frequent_paths.jpg")
+    plt.close()
+
+    return tracks_mean
+
+
 def show_tracks_labels(file_path, labels, n=17, save_pics=True):
     # type: (str, np.ndarray, int, bool) -> None
     """
@@ -281,22 +316,24 @@ def show_tracks_labels(file_path, labels, n=17, save_pics=True):
     :return: None
     """
 
-    colors = dict()
+    color = (randint(64, 255) /255, randint(64, 255)/255, randint(64, 255)/255)
     mat = scipy.io.loadmat(file_path)
     labels = np.squeeze(labels)
 
-    for i in range(0, labels.max() +1):
-        if i == n:
-            colors[str(i)] = (randint(64, 255) /255, randint(64, 255)/255, randint(64, 255)/255)
-        else:
-            colors[str(i)] = (211 /255, 211 /255, 211 /255)
+    it_gray_paths = ((track[0], label) for track, label in zip(mat['tracks'], labels) if label != n)
+    it_color_paths = ((track[0], label) for track, label in zip(mat['tracks'], labels) if label == n)
 
     fig = plt.figure()
     plt.title('Cluster n°' + str(n))
-    for track, label in zip(mat['tracks'], labels):
-        track = track[0]
+
+    for track, label in it_gray_paths:
         xs, ys = track[0], track[1]
-        plt.plot(xs, ys, ',-', color=colors[str(label)], linewidth=1)
+        plt.plot(xs, ys, ',-', color='lightgray', linewidth=1)
+
+    for track, label in it_color_paths:
+        xs, ys = track[0], track[1]
+        plt.plot(xs, ys, ',-', color=color, linewidth=1)
+
     fig.show()
     if save_pics:
         fig.savefig("./pics/cluster_n%d.jpg" % n)
@@ -363,6 +400,9 @@ def main(args):
     print("Completeness: %0.3f" % metrics.completeness_score(np.squeeze(gt), labels))
     print("V-measure: %0.3f" % metrics.v_measure_score(np.squeeze(gt), labels))
 
+    if args.fixed_length != 0:
+        mean_trajectories(np.array(tracks), labels)
+
     for i in range(0, labels.max() +1):
         show_tracks_labels(args.data, labels, i, save_pics=args.save_pics)
 
@@ -373,15 +413,15 @@ if __name__ == '__main__':
     parser.add_argument('--data', type=str,
                         help='File containing data', default='ds/cross.mat')
     parser.add_argument('--num_samples', type=int,
-                        help='Use n_samples from data', default=300)
+                        help='Use n_samples from data (0: use all data)', default=0)
     parser.add_argument('--method', type=str,
-                        help='Clustering method', default='kmeans')
+                        help='Clustering method ( kmeans | spectral )', default='kmeans')
     parser.add_argument('--n_cluster', type=int,
                         help='Number of clusters', default=15)
     parser.add_argument('--fixed_length', type=int,
                         help='Resample trajectories to fixed length', default=100)
     parser.add_argument('--flow', type=bool,
-                        help='Convert trajectories to flow before clustering', default=False)
+                        help='Convert trajectories to flow before clustering', default=True)
     parser.add_argument('--flow_th', type=float,
                         help='Filter flow using a threeshold', default=0.)
     parser.add_argument('--distance_function', type=str,
@@ -389,7 +429,7 @@ if __name__ == '__main__':
     parser.add_argument('--sigma', type=int,
                         help='Sigma value in gaussian kernel', default=15)
     parser.add_argument('--save_pics', type=bool,
-                        help='Save figures', default=False)
+                        help='Save figures', default=True)
 
     args = parser.parse_args()
     print(args)
