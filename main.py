@@ -10,6 +10,7 @@ import argparse
 import numba
 import numpy
 from math import sqrt
+from sklearn_extensions.fuzzy_kmeans import FuzzyKMeans
 
 
 @numba.jit(nopython=True, fastmath=True)
@@ -378,10 +379,12 @@ def clustering_traj(tracks, gt, method='kmeans', fixed_length=100, num_samples=0
 
     if method == 'kmeans':
         clustering = KMeans(n_clusters=n_cluster)
+    elif method == 'fuzzy_kmeans':
+        clustering = FuzzyKMeans(k=n_cluster, m=3)
     elif method == 'spectral':
         clustering = SpectralClustering(n_clusters=n_cluster, affinity='precomputed')
 
-    labels = clustering.fit_predict(sim_matrix)
+    labels = clustering.fit(sim_matrix).labels_
     return labels, gt
 
 
@@ -415,7 +418,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_samples', type=int,
                         help='Use n_samples from data (0: use all data)', default=0)
     parser.add_argument('--method', type=str,
-                        help='Clustering method ( kmeans | spectral )', default='kmeans')
+                        help='Clustering method ( kmeans | spectral | fuzzy_kmeans )', default='kmeans')
     parser.add_argument('--n_cluster', type=int,
                         help='Number of clusters', default=15)
     parser.add_argument('--fixed_length', type=int,
