@@ -167,6 +167,9 @@ def similarity_matrix(trajectories, distance='hausdorff'):
         for i in range(0, len_t):
             for j in range(0, len_t):
 
+                if j < i:
+                    continue
+
                 t1, t2 = trajectories[i].T, trajectories[j].T
 
                 if distance == 'hu':
@@ -176,6 +179,7 @@ def similarity_matrix(trajectories, distance='hausdorff'):
                 elif distance == 'lcss':
                     sim_matrix[i, j] = lcss_distance(t1, t2)
             pbar.update(1)
+        sim_matrix = sim_matrix + sim_matrix.T - numpy.diag(sim_matrix.diagonal())
     return sim_matrix
 
 
