@@ -2,6 +2,9 @@
 .idea/
 *__pycache__/
 
+### Pics
+.jpg
+
 ### Video files
 *.mp4
 *.MP4
