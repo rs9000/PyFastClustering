@@ -5,6 +5,9 @@
 - Install the required packages
     - `pip install -r requirements.txt`
     
+- Pose Dataset 
+    - <a href="http://vision.imar.ro/human3.6m/description.php"> Human3.6 Dataset</a>
+    
 ### Trajectories Clustering
 
 <img src="pics/demo.gif" width=800>
@@ -54,8 +57,6 @@ V-measure: 0.939
 
 ### Pose Clustering
 
-Require <a href="http://vision.imar.ro/human3.6m/description.php"> Human3.6 Dataset</a>
-
 <img src="pics/8.jpg" width=600>
 
 #### Logs
@@ -63,7 +64,9 @@ Require <a href="http://vision.imar.ro/human3.6m/description.php"> Human3.6 Data
 ./pose.py
 
 ```
-Namespace(data='./ds/human_3d_test.data', images='/home/rs/Scrivania/', method='spectral', num_samples=300, sigma=0.05, use_angles=False)
+Namespace(data='./ds/human_3d_test.data', images='/home/rs/Scrivania/', method='spectral', 
+          num_samples=300, sigma=0.05, use_angles=False)
+          
 Compute similarity matrix: 100%|██████████| 300/300 [00:00<00:00, 445.88it/s]
 Processing pictures: 100%|██████████| 300/300 [01:21<00:00,  3.75it/s]
 ```
