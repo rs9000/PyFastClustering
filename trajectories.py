@@ -1,123 +1,15 @@
 import scipy.io
 from matplotlib import pyplot as plt
-import numpy as np
 from scipy.interpolate import interp1d
 from sklearn.cluster import SpectralClustering, KMeans, DBSCAN
 from sklearn import metrics
 from random import randint
 from tqdm import tqdm
 import argparse
-import numba
 import numpy
-from math import sqrt
 from sklearn_extensions.fuzzy_kmeans import FuzzyKMeans
-
-
-@numba.jit(nopython=True, fastmath=True)
-def euclidean_distance(a, b):
-    # type: (np.ndarray, np.ndarray) -> float
-    """
-    Euclidean distance between point `a` and point `b`
-    :param a: Point a
-    :param b: Point b
-    :return: Euclidean distance
-    """
-
-    assert a.shape[0] == b.shape[0]
-
-    val = 0.
-    for i in range(a.shape[0]):
-        val += (a[i] - b[i]) ** 2
-    return sqrt(val)
-
-
-@numba.jit(nopython=True, fastmath=True)
-def hu_distance(t1, t2):
-    # type: (np.ndarray, np.ndarray) -> float
-    """
-    Compute the HU distance as the average Euclidean distance between points
-    on two trajectories `t1` and `t2`
-
-    :param t1: Trajectory a
-    :param t2: Trajectory b
-    :return: Hu distance
-    """
-
-    d = float(0)
-    assert t1.shape[0] == t2.shape[0]
-
-    for i in range(t1.shape[0]):
-        d += euclidean_distance(t1[i], t2[i])
-
-    return (d / t1.size)
-
-
-@numba.jit(nopython=True, fastmath=True)
-def hausdorff_distance(t1, t2):
-    # type: (np.ndarray, np.ndarray) -> float
-    """
-    Compute the Hausdorff distance between two trajectories `t1` and `t2`
-
-    :param t1: Trajectory a
-    :param t2: Trajectory b
-    :return: hausdorff distance
-    """
-
-    nA = t1.shape[0]
-    nB = t2.shape[0]
-    cmax = 0.
-    for i in range(nA):
-        cmin = np.inf
-        for j in range(nB):
-            d = euclidean_distance(t1[i, :], t2[j, :])
-            if d<cmin:
-                cmin = d
-            if cmin<cmax:
-                break
-        if cmin>cmax and np.inf>cmin:
-            cmax = cmin
-    for j in range(nB):
-        cmin = np.inf
-        for i in range(nA):
-            d = euclidean_distance(t1[i, :], t2[j, :])
-            if d<cmin:
-                cmin = d
-            if cmin<cmax:
-                break
-        if cmin>cmax and np.inf>cmin:
-            cmax = cmin
-    return cmax
-
-
-@numba.jit(nopython=True, fastmath=True)
-def lcss_distance(t1, t2, th=100, delta=10):
-    # type: (np.ndarray, np.ndarray, int, int) -> float
-    """
-    Compute LCSS distance between `t1` and `t2` trajectories
-
-    :param t1: Trajectory a
-    :param t2: Trajectory b
-    :param th: Threshold
-    :param delta: Delta
-    :return: LCSS distance
-    """
-
-
-    m = t1.shape[0]
-    n = t2.shape[0]
-
-    L = np.full((n+1, m+1), 0.)
-
-    for i in range(m+1):
-        for j in range(n+1):
-            if i == 0 or j == 0:
-                L[i, j] = 0
-            elif euclidean_distance(t1[i - 1], t2[j - 1]) < th and abs(i-j) < delta:
-                L[i, j] = L[i-1, j-1] + 1
-            else:
-                L[i, j] = max(L[i-1, j], L[i, j - 1])
-
-    return 1 - (L[-1, -1] / min(m, n))
+from metrics import *
+from visualizzation import show_tracks_labels, show_tracks
 
 
 def filter_flow(flow, th=0.1):
@@ -135,19 +27,6 @@ def filter_flow(flow, th=0.1):
             if d > th:
                 cf.append(flow[i])
     return np.array(cf).T
-
-
-@numba.jit(nopython=True, fastmath=True)
-def dist_to_sim_mx(dist_matrix, sigma=15):
-    # type: (np.ndarray, int) -> np.ndarray
-    """
-    Distance matrix to similarity matrix using Gaussian Kernel
-
-    :param dist_matrix:  Distance matrix
-    :param sigma: Sigma
-    :return: Similarity matrix
-    """
-    return np.exp(- dist_matrix ** 2 / (2. * sigma ** 2))
 
 
 def similarity_matrix(trajectories, distance='hausdorff'):
@@ -248,34 +127,6 @@ def track_to_flow(tracks, flow_th=0.1):
     return tracks
 
 
-def show_tracks(file_path, n=0, save_pics=True):
-    # type: (str, float, bool) -> None
-    """
-    Read data from `file_path` and visualize data ( `n` samples)
-
-    :param file_path: File containing data
-    :param n: Num of samples
-    :return: None
-    """
-
-    if n == 0:
-        n = float('Inf')
-
-    mat = scipy.io.loadmat(file_path)
-
-    fig = plt.figure()
-    for i, track in enumerate(mat['tracks']):
-        track = track[0]
-        xs, ys = track[0], track[1]
-        plt.plot(xs, ys, ',-', linewidth=1)
-        if i > n:
-            break
-    fig.show()
-    if save_pics:
-        fig.savefig("./pics/Figure_0.jpg")
-    plt.close()
-
-
 def mean_trajectories(tracks, labels):
     # type: (np.ndarray, np.ndarray) -> list
     """
@@ -308,41 +159,6 @@ def mean_trajectories(tracks, labels):
     plt.close()
 
     return tracks_mean
-
-
-def show_tracks_labels(file_path, labels, n=17, save_pics=True):
-    # type: (str, np.ndarray, int, bool) -> None
-    """
-    Visualize clusters from labelled data
-
-    :param file_path: File containing data
-    :param labels: Cluster-id
-    :param n: Id colored cluster
-    :return: None
-    """
-
-    color = (randint(64, 255) /255, randint(64, 255)/255, randint(64, 255)/255)
-    mat = scipy.io.loadmat(file_path)
-    labels = np.squeeze(labels)
-
-    it_gray_paths = ((track[0], label) for track, label in zip(mat['tracks'], labels) if label != n)
-    it_color_paths = ((track[0], label) for track, label in zip(mat['tracks'], labels) if label == n)
-
-    fig = plt.figure()
-    plt.title('Cluster n°' + str(n))
-
-    for track, label in it_gray_paths:
-        xs, ys = track[0], track[1]
-        plt.plot(xs, ys, ',-', color='lightgray', linewidth=1)
-
-    for track, label in it_color_paths:
-        xs, ys = track[0], track[1]
-        plt.plot(xs, ys, ',-', color=color, linewidth=1)
-
-    fig.show()
-    if save_pics:
-        fig.savefig("./pics/cluster_n%d.jpg" % n)
-    plt.close()
 
 
 def clustering_traj(tracks, gt, method='kmeans', fixed_length=100, num_samples=0, distance="hu",
@@ -387,6 +203,8 @@ def clustering_traj(tracks, gt, method='kmeans', fixed_length=100, num_samples=0
         clustering = FuzzyKMeans(k=n_cluster, m=3)
     elif method == 'spectral':
         clustering = SpectralClustering(n_clusters=n_cluster, affinity='precomputed')
+    else:
+        raise NotImplementedError
 
     labels = clustering.fit(sim_matrix).labels_
     return labels, gt
