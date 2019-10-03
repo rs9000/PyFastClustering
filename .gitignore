@@ -1,9 +1,7 @@
 ### Pycharm stuffs
 .idea/
 *__pycache__/
-
-### Pics
-*.jpg
+clusters/
 
 ### Video files
 *.mp4
