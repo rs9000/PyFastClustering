@@ -22,6 +22,43 @@ def preprocess_data(data):
     data = data - np.expand_dims(root, 1)
     data[:, :, 1] = -data[:, :, 1]
     data = data / np.max(np.abs(data))
+    data = rotate_pose(data)
+
+    return data
+
+
+@numba.jit(nopython=True, fastmath=True)
+def rotate_pose(data, rot_joint=8):
+    # type: (np.ndarray, int) -> np.ndarray
+    """
+    Rotate pose respect to `rot_joint` to align with x-axis
+
+    :param data: Pose
+    :param rot_joint: Joint of rotation
+    :return: Rotated pose
+    """
+
+    for i in range(data.shape[0]):
+      # X, Z coordinates of ankle joint
+      z, x = data[i, rot_joint, 0], data[i, rot_joint, 2]
+      OA = np.sqrt(np.power(x, 2) + np.power(z, 2))
+      OB = np.sqrt(np.power(x, 2))
+
+      if x > 0 and z > 0:
+        m = np.arccos(OB / OA) - (np.pi / 2)
+      elif x < 0 and z > 0:
+        m = (np.pi / 2) - np.arccos(OB / OA)
+      elif x < 0 and z < 0:
+        m = (np.pi / 2) + np.arccos(OB / OA)
+      elif x > 0 and z < 0:
+        m = (np.pi * 3 / 2) - np.arccos(OB / OA)
+
+      # Rotation Matrix
+      R = np.array(([np.cos(m), 0, np.sin(m)],
+                    [0, 1, 0],
+                    [-np.sin(m), 0, np.cos(m)]))
+
+      data[i] = data[i] @ R
 
     return data
 
