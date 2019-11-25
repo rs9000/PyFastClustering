@@ -40,18 +40,7 @@ def rotate_pose(data, rot_joint=8):
 
     for i in range(data.shape[0]):
       # X, Z coordinates of ankle joint
-      z, x = data[i, rot_joint, 0], data[i, rot_joint, 2]
-      OA = np.sqrt(np.power(x, 2) + np.power(z, 2))
-      OB = np.sqrt(np.power(x, 2))
-
-      if x > 0 and z > 0:
-        m = np.arccos(OB / OA) - (np.pi / 2)
-      elif x < 0 and z > 0:
-        m = (np.pi / 2) - np.arccos(OB / OA)
-      elif x < 0 and z < 0:
-        m = (np.pi / 2) + np.arccos(OB / OA)
-      elif x > 0 and z < 0:
-        m = (np.pi * 3 / 2) - np.arccos(OB / OA)
+      m = np.arctan2(data[i, rot_joint, 0], data[i, rot_joint, 2])
 
       # Rotation Matrix
       R = np.array(([np.cos(m), 0, np.sin(m)],
@@ -121,7 +110,7 @@ def distance_matrix(joints, distance='hu', w=None):
     return distance_matrix
 
 
-def cluster_pose(dist_matrix, method='kmeans', sigma=0.04):
+def cluster_pose(dist_matrix, method='kmeans', sigma=0.03):
     # type: (np.ndarray, str, float) -> np.ndarray
     """
     Clustering data
@@ -135,11 +124,11 @@ def cluster_pose(dist_matrix, method='kmeans', sigma=0.04):
     sim_matrix = dist_to_sim_mx(dist_matrix, sigma=sigma)
 
     if method == 'kmeans':
-        clustering = KMeans(n_clusters=15)
+        clustering = KMeans(n_clusters=args.n_clusters)
     elif method == 'spectral':
-        clustering = SpectralClustering(n_clusters=15)
+        clustering = SpectralClustering(n_clusters=args.n_clusters)
     else:
-        raise NotImplementedError
+        raise KeyError
 
     labels = clustering.fit(sim_matrix).labels_
     return labels
@@ -158,7 +147,7 @@ def main():
     dist_matrix = distance_matrix(data[:n])
     labels = cluster_pose(dist_matrix, method=args.method, sigma=args.sigma)
 
-    show_skeleton(data[:n], frames[:n], labels[:n], background=True)
+    show_skeleton(data[:n], frames[:n], labels[:n], background=True, remove_pics=True)
 
 
     return
@@ -168,15 +157,17 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Clustering trajectories')
     parser.add_argument('--data', type=str,
-                        help='File containing Human3.6 data', default='./ds/human_3d_test.data')
+                        help='File containing Human3.6 data', default='/nas/majinbu/capra/Datasets/Human3.6m/data/human_3d_test.data')
     parser.add_argument('--images', type=str,
-                        help='Folder contains Human3.6 subject images', default='/home/rs/Scrivania/')
+                        help='Folder contains Human3.6 subject images', default='/nas/majinbu/capra/Datasets/Human3.6m/frames_all/S11/')
     parser.add_argument('--method', type=str,
                         help='Clustering method ( kmeans | spectral )', default='spectral')
+    parser.add_argument('--n_clusters', type=int,
+                        help='Number of clusters', default=10)
     parser.add_argument('--sigma', type=float,
-                        help='Sigma value', default=0.05)
+                        help='Sigma value', default=0.04)
     parser.add_argument('--num_samples', type=int,
-                        help='Use n_samples from data', default=300)
+                        help='Use n_samples from data', default=500)
     parser.add_argument('--use_angles', type=bool,
                         help='Compute pose angles', default=False)
 

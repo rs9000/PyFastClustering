@@ -5,10 +5,11 @@ from metrics import *
 import matplotlib.image as mpimg
 from mpl_toolkits.mplot3d import Axes3D
 from tqdm import tqdm
+import os
 
 
-def show_tracks(file_path, n=0, save_pics=True):
-    # type: (str, float, bool) -> None
+def show_tracks(file_path, n=0, save_pics=True, background=False):
+    # type: (str, float, bool, bool) -> None
     """
     Read data from `file_path` and visualize data ( `n` samples)
 
@@ -29,14 +30,16 @@ def show_tracks(file_path, n=0, save_pics=True):
         plt.plot(xs, ys, ',-', linewidth=1)
         if i > n:
             break
-    fig.show()
+
     if save_pics:
         fig.savefig("./pics/Figure_0.jpg")
-    plt.close()
+
+    if not background:
+        fig.show()
 
 
-def show_tracks_labels(file_path, labels, n=17, save_pics=True):
-    # type: (str, np.ndarray, int, bool) -> None
+def show_tracks_labels(file_path, labels, n=17, save_pics=True, background=False):
+    # type: (str, np.ndarray, int, bool, bool) -> None
     """
     Visualize clusters from labelled data
 
@@ -64,14 +67,15 @@ def show_tracks_labels(file_path, labels, n=17, save_pics=True):
         xs, ys = track[0], track[1]
         plt.plot(xs, ys, ',-', color=color, linewidth=1)
 
-    fig.show()
     if save_pics:
         fig.savefig("./pics/cluster_n%d.jpg" % n)
-    plt.close()
+
+    if not background:
+        fig.show()
 
 
-def show_skeleton(joints, frames=None, labels=None, background=False):
-    # type: (np.ndarray, np.ndarray, np.ndarray, bool) -> None
+def show_skeleton(joints, frames=None, labels=None, background=False, remove_pics=False):
+    # type: (np.ndarray, np.ndarray, np.ndarray, bool, bool) -> None
     """
     Show skeletons amd save pics separated by cluster
 
@@ -81,6 +85,9 @@ def show_skeleton(joints, frames=None, labels=None, background=False):
     :param background: Background mode
     :return:
     """
+
+    if remove_pics:
+        os.system("find ./clusters/ -name '*.jpg' -delete")
 
     bone_list = [[0, 1], [1, 2], [2, 3], [3, 4], [1, 5], [5, 6], [6, 7],
                      [1, 8], [8, 9], [9, 10], [1, 11], [11, 12], [12, 13]]
