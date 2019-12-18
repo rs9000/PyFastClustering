@@ -9,7 +9,8 @@ import argparse
 import numpy
 from sklearn_extensions.fuzzy_kmeans import FuzzyKMeans
 from metrics import *
-from visualizzation import show_tracks_labels, show_tracks
+import visualizzation
+import pickle
 
 
 def filter_flow(flow, th=0.1):
@@ -40,7 +41,7 @@ def similarity_matrix(trajectories, distance='hausdorff'):
     """
 
     len_t = len(trajectories)
-    sim_matrix = np.full((len_t,len_t), 0.)
+    sim_matrix = np.full((len_t, len_t), 0.)
 
     with tqdm(desc='Compute similarity matrix: ', unit='it', total=len_t) as pbar:
         for i in range(0, len_t):
@@ -76,15 +77,14 @@ def resample_traj(t, len_seq, kind='linear'):
     y = np.full((t.shape[0], len_seq), 0)
 
     f = interp1d(np.linspace(0, 1, t[0].size), t[0], kind)
-    y[0] =  f(np.linspace(0, 1, len_seq))
+    y[0] = f(np.linspace(0, 1, len_seq))
 
     f = interp1d(np.linspace(0, 1, t[1].size), t[1], kind)
     y[1] = f(np.linspace(0, 1, len_seq))
 
     return y
 
-
-def mat_to_np(file_path):
+def load_data(file_path):
     # type: (str) -> (list, np.ndarray)
     """
     Load mat data in numpy
@@ -93,13 +93,21 @@ def mat_to_np(file_path):
     :return: data np array
     """
 
-    mat = scipy.io.loadmat(file_path)
-    tracks = []
+    ext = file_path.split('.')[-1]
+    tracks, gt = [], None
 
-    for track in mat['tracks']:
-        tracks.append(track[0])
+    if ext == 'mat':
+        mat = scipy.io.loadmat(file_path)
+        gt = mat['truth']
 
-    return tracks, mat['truth']
+        for track in mat['tracks']:
+            tracks.append(track[0])
+
+    elif ext == "pkl":
+        with open("./ds/trajectories.pkl", 'rb') as f:
+            tracks = pickle.load(f)
+
+    return tracks, gt
 
 
 def track_to_flow(tracks, flow_th=0.1):
@@ -161,7 +169,7 @@ def mean_trajectories(tracks, labels):
     return tracks_mean
 
 
-def clustering_traj(tracks, gt, method='kmeans', fixed_length=100, num_samples=0, distance="hu",
+def clustering_traj(tracks, gt=None, method='kmeans', fixed_length=100, num_samples=0, distance="hu",
                     sigma=15, flow=True, flow_th=0., n_cluster=8):
     # type: (list, np.ndarray, str, int, int, str, int, bool, float, int) -> (np.ndarray, np.ndarray)
     """
@@ -192,7 +200,7 @@ def clustering_traj(tracks, gt, method='kmeans', fixed_length=100, num_samples=0
 
     if num_samples != 0:
         tracks = tracks[:num_samples]
-        gt = gt[:num_samples]
+        gt = gt[:num_samples] if gt is not None else None
 
     dist_matrix = similarity_matrix(tracks, distance=distance)
     sim_matrix = dist_to_sim_mx(dist_matrix, sigma=sigma)
@@ -212,31 +220,31 @@ def clustering_traj(tracks, gt, method='kmeans', fixed_length=100, num_samples=0
 
 def main(args):
 
-    show_tracks(file_path=args.data, n=args.num_samples, save_pics=args.save_pics)
+    tracks, gt = load_data(args.data)
+    visualizzation.show_tracks(tracks, n=args.num_samples, save_pics=args.save_pics, background=False)
 
-    tracks, gt = mat_to_np(file_path=args.data)
-
-    labels, gt = clustering_traj(tracks, gt, num_samples=args.num_samples, method=args.method,
+    labels, gt = clustering_traj(tracks, gt=gt, num_samples=args.num_samples, method=args.method,
                                  n_cluster=args.n_cluster, fixed_length=args.fixed_length,
                                  flow=args.flow, flow_th=args.flow_th, distance=args.distance_function,
                                  sigma=args.sigma)
 
-    print("Homogeneity: %0.3f" % metrics.homogeneity_score(np.squeeze(gt), labels))
-    print("Completeness: %0.3f" % metrics.completeness_score(np.squeeze(gt), labels))
-    print("V-measure: %0.3f" % metrics.v_measure_score(np.squeeze(gt), labels))
+    if gt is not None:
+        print("Homogeneity: %0.3f" % metrics.homogeneity_score(np.squeeze(gt), labels))
+        print("Completeness: %0.3f" % metrics.completeness_score(np.squeeze(gt), labels))
+        print("V-measure: %0.3f" % metrics.v_measure_score(np.squeeze(gt), labels))
 
     if args.fixed_length != 0:
         mean_trajectories(np.array(tracks), labels)
 
     for i in range(0, labels.max() +1):
-        show_tracks_labels(args.data, labels, i, save_pics=args.save_pics)
+        visualizzation.show_tracks_labels(tracks, labels, i, save_pics=args.save_pics, background=True)
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Clustering trajectories')
     parser.add_argument('--data', type=str,
-                        help='File containing data', default='ds/cross.mat')
+                        help='File containing data', default='./ds/cross.mat')
     parser.add_argument('--num_samples', type=int,
                         help='Use n_samples from data (0: use all data)', default=0)
     parser.add_argument('--method', type=str,

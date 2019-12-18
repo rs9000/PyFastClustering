@@ -8,7 +8,7 @@ from tqdm import tqdm
 import os
 
 
-def show_tracks(file_path, n=0, save_pics=True, background=False):
+def show_tracks(tracks, n=0, save_pics=True, background=False):
     # type: (str, float, bool, bool) -> None
     """
     Read data from `file_path` and visualize data ( `n` samples)
@@ -21,11 +21,8 @@ def show_tracks(file_path, n=0, save_pics=True, background=False):
     if n == 0:
         n = float('Inf')
 
-    mat = scipy.io.loadmat(file_path)
-
     fig = plt.figure()
-    for i, track in enumerate(mat['tracks']):
-        track = track[0]
+    for i, track in enumerate(tracks):
         xs, ys = track[0], track[1]
         plt.plot(xs, ys, ',-', linewidth=1)
         if i > n:
@@ -38,7 +35,7 @@ def show_tracks(file_path, n=0, save_pics=True, background=False):
         fig.show()
 
 
-def show_tracks_labels(file_path, labels, n=17, save_pics=True, background=False):
+def show_tracks_labels(tracks, labels, n=17, save_pics=True, background=False):
     # type: (str, np.ndarray, int, bool, bool) -> None
     """
     Visualize clusters from labelled data
@@ -50,14 +47,16 @@ def show_tracks_labels(file_path, labels, n=17, save_pics=True, background=False
     """
 
     color = (randint(64, 255) /255, randint(64, 255)/255, randint(64, 255)/255)
-    mat = scipy.io.loadmat(file_path)
     labels = np.squeeze(labels)
 
-    it_gray_paths = ((track[0], label) for track, label in zip(mat['tracks'], labels) if label != n)
-    it_color_paths = ((track[0], label) for track, label in zip(mat['tracks'], labels) if label == n)
+    it_gray_paths = ((track, label) for track, label in zip(tracks, labels) if label != n)
+    it_color_paths = ((track, label) for track, label in zip(tracks, labels) if label == n)
 
     fig = plt.figure()
+    ax = plt.axes()
     plt.title('Cluster n°' + str(n))
+    ax.set_ylim(800, 0)
+    ax.set_xlim(0, 800)
 
     for track, label in it_gray_paths:
         xs, ys = track[0], track[1]
