@@ -10,9 +10,9 @@
     
 ### Trajectories Clustering
 
-<img src="pics/demo.gif" width=800>
+<img src="pics/demo.gif" width=700>
 
-<img src="pics/demo2.gif" width=800>
+<img src="pics/demo2.gif" width=700>
     
 #### Logs
 
@@ -57,7 +57,15 @@ V-measure: 0.939
 
 ### Pose Clustering
 
-<img src="pics/8.jpg" width=600>
+<img src="pics/pose_clusters.png" width=700>
+
+<table>
+  <tr>
+    <th><img src="pics/pose_sample.jpg" width=350></th>
+    <th><img src="pics/pose-sample2.jpg" width=350></th>
+  </tr>
+</table>
+
 
 #### Logs
 
